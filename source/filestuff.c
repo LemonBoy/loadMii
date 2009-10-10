@@ -11,18 +11,10 @@
 #include "filestuff.h"
 #include "tool.h"
                          
-static fatdev * inuse = NULL;
+static fatdev * inuse = NULL;     /* Fat device in use.    */
 static char bPath[MAXPATHLEN];    /* Browsing path.        */                         
 static item * list = NULL; 	  /* Global list of files. */
 static int  fCount = 0;    	  /* Files count.          */      
-
-char *devtext[] = {
-        "Internal SD slot",
-        "Usb stick",
-        "Dvd drive (requires DVDX)",
-        "SD Gecko slot A",
-        "SD Gecko slot B"
-        };
 
 item *getItem (int n)
 {
@@ -40,11 +32,11 @@ char *getCurrentPath ()
         
         memset(ret, 0, MAXPATHLEN);
         
-        if (strlen(bPath) >= 30)
+        if (strlen(bPath) >= 40)
         {
-                strncpy(ret, bPath, 12);
+                strncpy(ret, bPath, 18);
                 strcat(ret, "...");
-                strncat(ret, bPath + 12, 12);
+                strncat(ret, bPath + 18, 18);
         }
         else
         {
@@ -78,31 +70,6 @@ char *formatSize (int size)
         }
                 
 	return strdup(formattedStr);
-}
-
-char *getNames ()
-{
-        char str[50];
-        
-        memset(str, 0, 50);
-        
-        if (inuse != NULL)
-        {
-                if (inuse->index == 0)
-                {
-                        sprintf("%s >>", devtext[inuse->index + 1]);
-                }
-                else if (inuse->index > 0 && inuse->index < maxdev - 1)
-                {
-                        sprintf("<< %s | %s >>", devtext[inuse->index - 1], devtext[inuse->index + 1]);
-                }
-                else if (inuse->index == maxdev - 1)
-                {
-                        sprintf("<< %s", devtext[inuse->index - 1]);
-                }
-        }
-        
-        return strdup(str);
 }
 
 int supportedFile (char *name)
@@ -154,11 +121,11 @@ void getFiles ()
                 }
                 if (matchStr(list[index].name, "."))
                 {
-                        sprintf(list[index].labl, "Current directory");
+                        sprintf(list[index].labl, "[Current directory]");
                 }
 		else if (matchStr(list[index].name, ".."))
                 {
-                        sprintf(list[index].labl, "Parent directory");
+                        sprintf(list[index].labl, "[Parent directory]");
                 }
                 else
                 {
@@ -179,11 +146,10 @@ void getFiles ()
         fCount = index;
 }
 
-int setDevice (fatdev device)
+void unmountDevice ()
 {
         if (inuse != NULL)
         {
-                debugPrint("Unmount the old device first");
                 if (matchStr(inuse->root, "dvd"))
                 {
                         ISO9660_Unmount();
@@ -195,6 +161,11 @@ int setDevice (fatdev device)
                 inuse->io->shutdown();
                 inuse = NULL;
         }
+}
+
+int setDevice (fatdev device)
+{
+        unmountDevice();
 
         device.io->startup();
 
@@ -205,7 +176,7 @@ int setDevice (fatdev device)
                 return 0;
         }
         
-        if (matchStr(device->root, "dvd"))
+        if (matchStr(device.root, "dvd"))
         {
                 if (!(ISO9660_Mount()))
                 {
@@ -215,7 +186,7 @@ int setDevice (fatdev device)
         }
         else
         {                       
-                if (!fatMount(device->root, device->io, 0, 8, 512))
+                if (!fatMount(device.root, device.io, 0, 8, 512))
                 {
                         return 0;
                 }
@@ -230,18 +201,18 @@ int setDevice (fatdev device)
         return 1;
 }
 
-void updatePath (char *update)
+int updatePath (char *update)
 {
         if (matchStr(update, "."))
         {
-                return;
+                return 1;
         }
         else if (matchStr(update, ".."))
         {
-                char * lastSlash = strrchr(bPath, '/');
+                char * lastSlash = strrchr(bPath + strlen(inuse->root) + 2, '/');
                 if (lastSlash == NULL)
                 {
-                        return;
+                        return 0;
                 }
                 *lastSlash = 0;
         }
@@ -251,12 +222,14 @@ void updatePath (char *update)
         }
 
         getFiles();
+        
+        return 1;
 }
 
 u8 *memoryLoad (item *file)
 {
         char ffPath[MAXPATHLEN];
-        u8 *memholder = NULL;
+        u8 *memholder = malloc(file->size);//(u8 *)0xD0000000; /* Uncached mem2. */
         
         memset(&ffPath, 0, MAXPATHLEN);
         
@@ -269,13 +242,6 @@ u8 *memoryLoad (item *file)
                 return NULL;
         }
 
-        memholder = malloc(file->size);
-        
-        if (memholder == NULL)
-        {
-                return NULL;
-        }
-        
         if (fread(memholder, 1, file->size, fp) < file->size)
         {
                 free(memholder);

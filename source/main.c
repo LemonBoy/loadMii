@@ -47,6 +47,71 @@ void installStub ()
 	memcpy((void *)0x80001800, reloadStub, sizeof(reloadStub));
 }
 
+#define KEY_UP		0x01
+#define KEY_DOWN 	0x02
+#define KEY_LEFT 	0x04
+#define KEY_RIGHT 	0x08
+#define KEY_PLUS 	0x10
+#define KEY_MINUS 	0x20
+#define KEY_A 		0x40
+#define KEY_B 		0x80
+
+u8 readKeys ()
+{
+	u8 bitmap;
+	int pad;
+	
+	PAD_ScanPads();
+	WPAD_ScanPads();
+	
+	bitmap = 0;
+	
+	for (pad=0;pad<4;pad++)
+	{
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_UP || WPAD_ButtonsDown(pad) & WPAD_BUTTON_UP)
+		{
+			bitmap |= KEY_UP;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_DOWN || WPAD_ButtonsDown(pad) & WPAD_BUTTON_DOWN)
+		{
+			bitmap |= KEY_DOWN;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_LEFT || WPAD_ButtonsDown(pad) & WPAD_BUTTON_LEFT)
+		{
+			bitmap |= KEY_LEFT;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_RIGHT || WPAD_ButtonsDown(pad) & WPAD_BUTTON_RIGHT)
+		{
+			bitmap |= KEY_RIGHT;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_X || WPAD_ButtonsDown(pad) & WPAD_BUTTON_PLUS)
+		{
+			bitmap |= KEY_PLUS;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_Y || WPAD_ButtonsDown(pad) & WPAD_BUTTON_MINUS)
+		{
+			bitmap |= KEY_MINUS;
+		}	
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_A || WPAD_ButtonsDown(pad) & WPAD_BUTTON_A)
+		{
+			bitmap |= KEY_A;
+		}
+		
+		if (PAD_ButtonsDown(pad) & PAD_BUTTON_B || WPAD_ButtonsDown(pad) & WPAD_BUTTON_B)
+		{
+			bitmap |= KEY_B;
+		}													
+	}
+	
+	return bitmap;
+}
+
 int main(int argc, char **argv) 
 {
         int device = 0;
@@ -56,6 +121,8 @@ int main(int argc, char **argv)
         DI_Init();
 
 	__initializeVideo();
+	
+	PAD_Init();
 	WPAD_Init();
 	
 	//~ initializeNet();
@@ -66,25 +133,24 @@ int main(int argc, char **argv)
 		
         while (1)
         {
-                WPAD_ScanPads();
+                u8 kMap = readKeys();
 
 		printf("\x1b[2J");
                 printf("\x1b[4;0H");
 		printf("\t :: loadMii 0.4 - REBiRTH\n");
-                printf("\t :: [%s] %s\n", getCurrentPath(), getNames());
-		printf("\n\n");
+                printf("\t :: [%s]\n", getCurrentPath());
 
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_UP && i > 0)
+                if (kMap & KEY_UP && i > 0)
                 {
                         i--;
                 }
 
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_DOWN && i < (p - 1))
+                if (kMap & KEY_DOWN && i < (p - 1))
                 {
                         i++;
                 }
 		
-		if (WPAD_ButtonsDown(0) & WPAD_BUTTON_LEFT)
+		if (kMap & KEY_LEFT)
 		{
 			if (i <= 5)
 			{
@@ -96,7 +162,7 @@ int main(int argc, char **argv)
 			}
 		}
 		
-		if (WPAD_ButtonsDown(0) & WPAD_BUTTON_RIGHT)
+		if (kMap & KEY_RIGHT)
 		{
 			if ((i + 5) >= (p - 1))
 			{
@@ -108,21 +174,27 @@ int main(int argc, char **argv)
 			}
 		}		
 
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_PLUS && device < (maxdev - 1))
+                if (kMap & KEY_PLUS && device < (maxdev - 1))
                 {
-                        device++;
-                        setDevice(devlst[device]);
+                        setDevice(devlst[device++]);
 			i = 0;
                 }
 
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_MINUS && device > 0)
+                if (kMap & KEY_MINUS && device > 0)
                 {
-                        device--;
-                        setDevice(devlst[device]);
+                        setDevice(devlst[device--]);
 			i = 0;
                 }
 		
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_A)
+                if (kMap & KEY_B)
+                {
+			if (updatePath(".."))
+			{
+				i = 0;
+			}
+		}
+		
+                if (kMap & KEY_A)
                 {
 			if (getItem(i)->size == 0)
 			{
@@ -146,17 +218,13 @@ int main(int argc, char **argv)
 							break;
 					}
 					
+					unmountDevice();
 					entry();
 				}
 			}
 		}
 
-                if (WPAD_ButtonsDown(0) & WPAD_BUTTON_HOME)
-                {
-			exit(0);
-                }
-
-                for (p=i;p<15 + i;p++)
+                for (p=i;p<20 + i;p++)
 	        {
 		        if (getFilesCount() - p == 0)
 		        {

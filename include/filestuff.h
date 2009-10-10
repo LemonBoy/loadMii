@@ -32,8 +32,9 @@ static fatdev devlst[] = {
         
 u8 *memoryLoad (item *file);
 int supportedFile (char *name);
-void setDevice (fatdev device);
-void updatePath (char *update);   
+int setDevice (fatdev device);
+void unmountDevice ();
+int updatePath (char *update);   
 char *getCurrentPath ();                
 item *getItem (int n);
 int getFilesCount ();
