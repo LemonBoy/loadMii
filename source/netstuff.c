@@ -32,9 +32,6 @@
 #include "netstuff.h"
 #include "version.h"
 
-int netReady = 0;
-char hostIP[16];
-
 char *http_host;
 u16 http_port;
 char *http_path;
@@ -44,6 +41,14 @@ http_res result;
 u32 http_status;
 u32 content_length;
 u8 *http_data;
+
+#define MAX_RETRIES 10
+#define NETSTACK_SZ 8 * 1024
+
+static int netReady = 0;
+static char hostIP[16];
+static lwp_t netThread = LWP_THREAD_NULL;
+static u8 netStack[NETSTACK_SZ] ATTRIBUTE_ALIGN (32);
 
 s32 tcp_socket (void) {
 	s32 s, res;
@@ -381,12 +386,13 @@ void shutdownNet ()
         if (netReady)
         {
                 net_deinit();
+		netReady = 0;
         }
 }
 
-void initializeNet ()
+void initializeNet (int retry)
 {
-        s32 res = net_init();
+        s32 res = -EAGAIN;
         int retries = 0;
         
         shutdownNet();
@@ -395,12 +401,15 @@ void initializeNet ()
         
         while (res == -EAGAIN)
         {
-                if (retries == 10)
+                if (retries == retry)
                 {
                         return;
                 }
-                usleep(10000);
+		
+                sleep(10); /* Wait 10 seconds. */
+		
                 res = net_init();
+		
                 retries++;
         }
         
@@ -409,42 +418,25 @@ void initializeNet ()
         netReady = 1;
 }
 
-int checkUpdates ()
+static void * networkThread ()
 {
-        int updated = 0;
-        
-        int retries = 0;
-        u32 httpRes = 0;
-        u8  *versionFile;
-        
-        int res = http_request("http://www.softmii.com/loadmii/version.txt", 0x20);
-        
-        if (!res)
-        {
-                if (retries == 5)
-                {
-                        return 0;
-                }
-                usleep(10000);
-                res = http_request("http://www.softmii.com/loadmii/version.txt", 0x20);
-                retries++;
-        }
-        
-        versionFile = malloc(0x20);
-        
-        http_get_result(&httpRes, &versionFile, NULL);
-        
-        if (httpRes != 404)
-        {
-                if (versionFile[0] == loadmiiVersionMajor &&
-                        versionFile[2] == loadmiiVersionMinor &&
-                        versionFile[4] == loadmiiVersionPatch)
-                {
-                        updated = 1;
-                }
-        }
-        
-        free(versionFile);
-        
-        return updated;
+	while (1)
+	{
+		if (!netReady)
+		{
+			initializeNet(MAX_RETRIES);
+		}
+	}
+	
+	return NULL;
+}
+
+void startNetworkStuff ()
+{
+	LWP_CreateThread(&netThread, networkThread, NULL, netStack, NETSTACK_SZ, 40);
+}
+
+int networkReady ()
+{
+	return netReady;
 }

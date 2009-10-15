@@ -9,7 +9,7 @@
 #include <iso9660.h>
 
 #include "filestuff.h"
-#include "tool.h"
+#include "tools.h"
                          
 static fatdev * inuse = NULL;     /* Fat device in use.    */
 static char bPath[MAXPATHLEN];    /* Browsing path.        */                         
@@ -26,6 +26,11 @@ int getFilesCount ()
         return fCount;
 }
 
+int isDeviceInserted ()
+{
+        return inuse->io->isInserted();
+}
+
 char *getCurrentPath ()
 {
         char ret[MAXPATHLEN];
@@ -36,7 +41,7 @@ char *getCurrentPath ()
         {
                 strncpy(ret, bPath, 18);
                 strcat(ret, "...");
-                strncat(ret, bPath + 18, 18);
+                strncat(ret, bPath + (strlen(bPath) - 19), 18);
         }
         else
         {
@@ -44,32 +49,6 @@ char *getCurrentPath ()
         }
         
         return strdup(ret);
-}
-
-char *formatSize (int size)
-{
-	char formattedStr[10];
-        
-	memset(formattedStr, 0, 10);
-        
-	if (size < 1024)
-	{
-		sprintf(formattedStr, "%i b", size);
-	}
-	else if (size > 1024 && size < 1024 * 1024)
-	{
-		sprintf(formattedStr, "%i Kb", size / 1024);
-	}
-	else if (size > 1024 * 1024 && size < 1024 * 1024 * 1024)
-	{
-		sprintf(formattedStr, "%i Mb", size / 1024 / 1024);
-	}
-        else if (size > 1024 * 1024 * 1024)
-        {
-                sprintf(formattedStr, "%i Gb", size / 1024 / 1024);
-        }
-                
-	return strdup(formattedStr);
 }
 
 int supportedFile (char *name)
@@ -108,9 +87,11 @@ void getFiles ()
 
         while (dirnext(iter, name, &fstat) == 0)
         {
-                list = (item *)realloc(list, sizeof(item) * (index+1));
+                list = (item *)realloc(list, sizeof(item) * (index + 1));
                 memset(&(list[index]), 0, sizeof(item));
+                
                 sprintf(list[index].name, "%s", name);
+                
                 if (fstat.st_mode & S_IFDIR)
                 {
                         list[index].size = 0;
@@ -119,6 +100,7 @@ void getFiles ()
                 {
                         list[index].size = fstat.st_size;
                 }
+                
                 if (matchStr(list[index].name, "."))
                 {
                         sprintf(list[index].labl, "[Current directory]");
@@ -131,13 +113,14 @@ void getFiles ()
                 {
 			if (list[index].size > 0)
 			{
-				sprintf(list[index].labl, "%.30s \t %s", list[index].name, formatSize(list[index].size));
+				sprintf(list[index].labl, "%.40s", list[index].name);
 			}
 			else
 			{
-				sprintf(list[index].labl, "[%.30s]", list[index].name);
+				sprintf(list[index].labl, "[%.380s]", list[index].name);
 			}
                 }
+                
                 index++;
         }
 
@@ -158,8 +141,23 @@ void unmountDevice ()
                 {
                         fatUnmount(inuse->root);
                 }
-                inuse->io->shutdown();
                 inuse = NULL;
+        }
+}
+
+void doStartup (int activate)
+{
+        int dev;
+        for (dev=0;dev<(maxdev-1);dev++)
+        {
+                if (activate)
+                {
+                        devlst[dev].io->startup();
+                }
+                else
+                {
+                        devlst[dev].io->shutdown();
+                }
         }
 }
 
@@ -167,20 +165,17 @@ int setDevice (fatdev device)
 {
         unmountDevice();
 
-        device.io->startup();
-
         if (!(device.io->isInserted()))
         {
-                debugPrint("Device not inserted");
-                device.io->shutdown();
                 return 0;
         }
         
         if (matchStr(device.root, "dvd"))
         {
+                DI_Mount();
                 if (!(ISO9660_Mount()))
                 {
-                        debugPrint("Cannot mount the dvd.");
+                        setError(1);
                         return 0;
                 }
         }
@@ -188,14 +183,16 @@ int setDevice (fatdev device)
         {                       
                 if (!fatMount(device.root, device.io, 0, 8, 512))
                 {
+                        setError(2);
                         return 0;
                 }
         }
         
         inuse = &device;
 
-        memset(&bPath, 0, 512);
+        memset(&bPath, 0, sizeof(bPath));
         sprintf(bPath, "%s:/", inuse->root);
+        
         getFiles();
         
         return 1;
@@ -229,9 +226,9 @@ int updatePath (char *update)
 u8 *memoryLoad (item *file)
 {
         char ffPath[MAXPATHLEN];
-        u8 *memholder = malloc(file->size);//(u8 *)0xD0000000; /* Uncached mem2. */
+        u8 *memholder = (u8 *)0x92000000;
         
-        memset(&ffPath, 0, MAXPATHLEN);
+        memset(&ffPath, 0, sizeof(ffPath));
         
         sprintf(ffPath, "%s/%s", getCurrentPath(), file->name);
         

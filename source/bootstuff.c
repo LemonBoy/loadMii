@@ -2,6 +2,7 @@
 #include <gccore.h>
 
 #include "bootstuff.h"
+#include "tools.h"
 
 int validateHeader(u8 *buffer)
 {
@@ -51,7 +52,7 @@ u32 relocateElf (u8 *addr)
         /* Check if the elf is a Powerpc one. */
         if (ehdr->e_machine != MACHINE_PPC)
         {
-                return 0x80001800;
+                setError(3);
         }
         /* Find the section header string table for output info */
         shdr = (Elf32_Shdr *) (addr + ehdr->e_shoff +

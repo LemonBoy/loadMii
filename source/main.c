@@ -11,6 +11,7 @@
 #include "filestuff.h"
 #include "bootstuff.h"
 #include "netstuff.h"
+#include "tools.h"
 
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
@@ -21,6 +22,15 @@ static u32 reloadStub[] = {
 	0x7c2903a6, // mtctr 1
 	0x4e800420  // bctr
 };
+
+void installStub ()
+{
+	u8 stubSign[] = {'S', 'T', 'U', 'B', 'H', 'A', 'X', 'X'};
+	
+	memset((void *)0x80001800, 0, 0x1800);
+	//~ memcpy((void *)0x80001804, stubSign, sizeof(stubSign));
+	memcpy((void *)0x80001800, reloadStub, sizeof(reloadStub));
+}
 
 void __initializeVideo()
 {
@@ -33,101 +43,99 @@ void __initializeVideo()
 	VIDEO_SetBlack(FALSE);
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
-	if(rmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
-
-	printf("\x1b[2;0H");
-}	
-
-void installStub ()
-{
-	u8 stubSign[8] = {'S', 'T', 'U', 'B', 'H', 'A', 'X', 'X'};
-	
-	memset((void *)0x80001800, 0, 0x1800);
-	//~ memcpy((void *)0x80001804, stubSign, sizeof(stubSign));
-	memcpy((void *)0x80001800, reloadStub, sizeof(reloadStub));
+	if(rmode->viTVMode&VI_NON_INTERLACE)
+	{
+		VIDEO_WaitVSync();
+	}
 }
 
-#define KEY_UP		0x01
-#define KEY_DOWN 	0x02
-#define KEY_LEFT 	0x04
-#define KEY_RIGHT 	0x08
-#define KEY_PLUS 	0x10
-#define KEY_MINUS 	0x20
-#define KEY_A 		0x40
-#define KEY_B 		0x80
-
-u8 readKeys ()
+void cleanup ()
 {
-	u8 bitmap;
-	int pad;
+	/* Unmount the FAT device... */
+	unmountDevice();
+	/* and send the shutdown command. */
+	doStartup(0);
+	/* Then g'bye libOGC. */
+	SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+}
+
+void sourceSelector ()
+{
+	int sel = 0;
 	
-	PAD_ScanPads();
-	WPAD_ScanPads();
-	
-	bitmap = 0;
-	
-	for (pad=0;pad<4;pad++)
-	{
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_UP || WPAD_ButtonsDown(pad) & WPAD_BUTTON_UP)
-		{
-			bitmap |= KEY_UP;
+	while (1)
+        {
+                u8 kMap = readKeys();
+
+		printf("\x1b[2J");
+                printf("\x1b[3;0H");
+                printf("\t :: loadMii 0.4 REBiRTH - Device selection\n");
+                printf("\t :: Press [LEFT] and [RIGHT] to choose between the devices\n");
+                printf("\t :: %s\n", devlst[sel].str);
+                printf("\t :: Inserted : %s\n", (devlst[sel].io->isInserted()) ? "Yes" : "No");
+                
+                if (kMap & KEY_RIGHT && sel < (maxdev - 1))
+                {
+			sel++;		
+                }
+
+                if (kMap & KEY_LEFT && sel > 0)
+                {
+                        sel--;
+                }                
+                
+                if (kMap & KEY_A)
+                {
+			if (devlst[sel].io->isInserted())
+			{
+				setDevice(devlst[sel]);
+				break;
+			}
 		}
 		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_DOWN || WPAD_ButtonsDown(pad) & WPAD_BUTTON_DOWN)
-		{
-			bitmap |= KEY_DOWN;
-		}
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_LEFT || WPAD_ButtonsDown(pad) & WPAD_BUTTON_LEFT)
-		{
-			bitmap |= KEY_LEFT;
-		}
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_RIGHT || WPAD_ButtonsDown(pad) & WPAD_BUTTON_RIGHT)
-		{
-			bitmap |= KEY_RIGHT;
-		}
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_X || WPAD_ButtonsDown(pad) & WPAD_BUTTON_PLUS)
-		{
-			bitmap |= KEY_PLUS;
-		}
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_Y || WPAD_ButtonsDown(pad) & WPAD_BUTTON_MINUS)
-		{
-			bitmap |= KEY_MINUS;
-		}	
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_A || WPAD_ButtonsDown(pad) & WPAD_BUTTON_A)
-		{
-			bitmap |= KEY_A;
-		}
-		
-		if (PAD_ButtonsDown(pad) & PAD_BUTTON_B || WPAD_ButtonsDown(pad) & WPAD_BUTTON_B)
-		{
-			bitmap |= KEY_B;
-		}													
-	}
-	
-	return bitmap;
+		/* Error handler. */
+		handleError();
+		/* Avoid flickering. */
+		fflush(stdout);
+		VIDEO_WaitVSync();
+	}		
 }
 
 int main(int argc, char **argv) 
 {
-        int device = 0;
 	int p = 0;
-	int i = 0;
+	int index = 0;
 
+	/* Initialize the DVDX stub. */
         DI_Init();
 
+	/* Set up the video. */
 	__initializeVideo();
 	
+	/* Fire up the wiimotes and the GC pad. */
 	PAD_Init();
 	WPAD_Init();
 	
-	//~ initializeNet();
+	/* Send activation command to the devices. */
+	doStartup(1);
+
+#if 0
+	startNetworkStuff();
 	
-	setDevice(devlst[device]);
+	while (networkReady())
+	{
+		printf(".");
+		fflush(stdout);
+		VIDEO_WaitVSync();
+	}
+	
+	printf("\t\t :: Network has been inited -> %i\n", networkReady());
+	
+	sleep(10);
+#endif
+
+	/* Ask the user wich device to mount. */
+	sourceSelector();
         	
 	installStub();	
 		
@@ -136,78 +144,73 @@ int main(int argc, char **argv)
                 u8 kMap = readKeys();
 
 		printf("\x1b[2J");
-                printf("\x1b[4;0H");
-		printf("\t :: loadMii 0.4 - REBiRTH\n");
+                printf("\x1b[3;0H");
+		printf("\t :: loadMii 0.4 REBiRTH - Browser\n");
+		printf("\t :: Press [+] to change the browsing device.\n");
                 printf("\t :: [%s]\n", getCurrentPath());
+                printf("\n");
 
-                if (kMap & KEY_UP && i > 0)
+                if (kMap & KEY_UP && index > 0)
                 {
-                        i--;
+                        index--;
                 }
 
-                if (kMap & KEY_DOWN && i < (p - 1))
+                if (kMap & KEY_DOWN && index < (p - 1))
                 {
-                        i++;
+                        index++;
                 }
 		
 		if (kMap & KEY_LEFT)
 		{
-			if (i <= 5)
+			if (index <= 5)
 			{
-				i = 0;
+				index = 0;
 			}
 			else
 			{
-				i -= 5;
+				index -= 5;
 			}
 		}
 		
 		if (kMap & KEY_RIGHT)
 		{
-			if ((i + 5) >= (p - 1))
+			if ((index + 5) >= (p - 1))
 			{
-				i = p - 1;
+				index = p - 1;
 			}
 			else
 			{
-				i += 5;
+				index += 5;
 			}
-		}		
-
-                if (kMap & KEY_PLUS && device < (maxdev - 1))
-                {
-                        setDevice(devlst[device++]);
-			i = 0;
-                }
-
-                if (kMap & KEY_MINUS && device > 0)
-                {
-                        setDevice(devlst[device--]);
-			i = 0;
-                }
+		}
+		
+		if (kMap & KEY_PLUS)
+		{
+			sourceSelector();
+		}
 		
                 if (kMap & KEY_B)
                 {
 			if (updatePath(".."))
 			{
-				i = 0;
+				index = 0;
 			}
 		}
 		
                 if (kMap & KEY_A)
                 {
-			if (getItem(i)->size == 0)
+			if (getItem(index)->size == 0)
 			{
-				updatePath(getItem(i)->name);
-				i = 0;
+				updatePath(getItem(index)->name);
+				index = 0;
 			}
 			else
 			{
-				if (supportedFile(getItem(i)->name))
+				if (supportedFile(getItem(index)->name))
 				{
-					u8 *bufPtr = memoryLoad(getItem(i));
-					void (*entry)() = (void *)0x80001800;
-					
+					u8 *bufPtr = memoryLoad(getItem(index));
+					void (*entry)() = (void*)0x80001400;
+					/* Do the right relocation. */
 					switch (validateHeader(bufPtr))
 					{
 						case 0x0:
@@ -218,20 +221,23 @@ int main(int argc, char **argv)
 							break;
 					}
 					
-					unmountDevice();
+					cleanup();
+					
 					entry();
 				}
 			}
 		}
 
-                for (p=i;p<20 + i;p++)
+                for (p=index;p<18+index;p++)
 	        {
 		        if (getFilesCount() - p == 0)
 		        {
 			        break;
 			}
-			printf("\t %s %s\n", ((p == i) ? "::" : "  "), getItem(p)->labl);
+			printf("\t %s %s\n", ((p == index) ? "::" : "  "), getItem(p)->labl);
 		}
+		/* Error handler. */
+		handleError();
 		/* Avoid flickering. */
 		fflush(stdout);
 		VIDEO_WaitVSync();

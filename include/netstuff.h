@@ -8,7 +8,8 @@
 #define TCP_BLOCK_SEND_TIMEOUT 4000
 
 void shutdownNet ();
-void initializeNet ();
+void startNetworkStuff ();
+int networkReady ();
 
 s32 tcp_socket (void);
 s32 tcp_connect (char *host, const u16 port);
