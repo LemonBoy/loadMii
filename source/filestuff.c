@@ -11,6 +11,16 @@
 #include "filestuff.h"
 #include "tools.h"
                          
+const fatdev devlst[] = {
+                        {"Internal SD slot"   , "sd" , &__io_wiisd     },
+                        {"Usb stick"          , "usb", &__io_usbstorage},
+                        {"Dvd (Requires DVDX)", "dvd", &__io_wiidvd    },
+                        {"SD Gecko in slot A" , "sda", &__io_gcsda     },
+                        {"SD Gecko in slot B" , "sdb", &__io_gcsdb     }
+                         };                   
+                         
+const int maxdev = sizeof(devlst) / sizeof(fatdev);
+
 static const fatdev * inuse = NULL; /* Fat device in use.    */
 static char bPath[MAXPATHLEN];      /* Browsing path.        */
 static item * list = NULL; 	    /* Global list of files. */

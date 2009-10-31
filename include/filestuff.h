@@ -19,15 +19,8 @@ typedef struct _item
         int  size;
 } item;      
 
-static fatdev devlst[] = {
-                        {"Internal SD slot"   , "sd" , &__io_wiisd     },
-                        {"Usb stick"          , "usb", &__io_usbstorage},
-                        {"Dvd (Requires DVDX)", "dvd", &__io_wiidvd    },
-                        {"SD Gecko in slot A" , "sda", &__io_gcsda     },
-                        {"SD Gecko in slot B" , "sdb", &__io_gcsdb     }
-                         };                   
-                         
-#define maxdev        (sizeof(devlst) / sizeof(fatdev))       
+extern const fatdev devlst[];
+extern const int maxdev;
 
 u8 *memoryLoad (item *file);
 int supportedFile (char *name);
