@@ -11,10 +11,10 @@
 #include "filestuff.h"
 #include "tools.h"
                          
-static fatdev * inuse = NULL;     /* Fat device in use.    */
-static char bPath[MAXPATHLEN];    /* Browsing path.        */                         
-static item * list = NULL; 	  /* Global list of files. */
-static int  fCount = 0;    	  /* Files count.          */      
+static const fatdev * inuse = NULL; /* Fat device in use.    */
+static char bPath[MAXPATHLEN];      /* Browsing path.        */
+static item * list = NULL; 	    /* Global list of files. */
+static int  fCount = 0;    	    /* Files count.          */      
 
 item *getItem (int n)
 {
@@ -161,16 +161,16 @@ void doStartup (int activate)
         }
 }
 
-int setDevice (fatdev device)
+int setDevice (const fatdev *device)
 {
         unmountDevice();
 
-        if (!(device.io->isInserted()))
+        if (!(device->io->isInserted()))
         {
                 return 0;
         }
         
-        if (matchStr(device.root, "dvd"))
+        if (matchStr(device->root, "dvd"))
         {
                 DI_Mount();
                 if (!(ISO9660_Mount()))
@@ -181,14 +181,14 @@ int setDevice (fatdev device)
         }
         else
         {                       
-                if (!fatMount(device.root, device.io, 0, 8, 512))
+                if (!fatMount(device->root, device->io, 0, 8, 512))
                 {
                         setError(2);
                         return 0;
                 }
         }
         
-        inuse = &device;
+        inuse = device;
 
         memset(&bPath, 0, sizeof(bPath));
         sprintf(bPath, "%s:/", inuse->root);

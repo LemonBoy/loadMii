@@ -31,7 +31,7 @@ static fatdev devlst[] = {
 
 u8 *memoryLoad (item *file);
 int supportedFile (char *name);
-int setDevice (fatdev device);
+int setDevice (const fatdev *device);
 void unmountDevice ();
 int updatePath (char *update);   
 char *getCurrentPath ();                

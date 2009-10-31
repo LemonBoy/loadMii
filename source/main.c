@@ -88,7 +88,7 @@ void sourceSelector ()
                 {
 			if (devlst[sel].io->isInserted())
 			{
-				setDevice(devlst[sel]);
+				setDevice(&devlst[sel]);
 				break;
 			}
 		}
