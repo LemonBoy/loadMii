@@ -53,8 +53,8 @@ char *getCurrentPath ()
 
 int supportedFile (char *name)
 {
-        if (strstr(name, ".elf") ||
-            strstr(name, ".dol"))
+        if (strcasestr(name, ".elf") ||
+            strcasestr(name, ".dol"))
         {
                 return 1;
         }
