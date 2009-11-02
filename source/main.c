@@ -49,12 +49,30 @@ void __initializeVideo()
 	}
 }
 
+void reloadIOS () {
+	int ver;
+
+	__IOS_ShutdownSubsystems();
+	if (__ES_Init() < 0) return;
+	ver = IOS_GetPreferredVersion();
+	if (ver < 0) {
+		__ES_Close();
+		return;
+	}
+	if (__IOS_LaunchNewIOS(ver) < 0) __ES_Close();
+	return;
+}
+
 void cleanup ()
 {
 	/* Unmount the FAT device... */
 	unmountDevice();
-	/* and send the shutdown command. */
+	/* send the shutdown command... */
 	doStartup(0);
+	/* shutdown WPAD... */
+	WPAD_Shutdown();
+	/* and reload IOS. */
+	reloadIOS();
 	/* Then g'bye libOGC. */
 	SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
 }
@@ -105,6 +123,11 @@ int main(int argc, char **argv)
 {
 	int p = 0;
 	int index = 0;
+	int iosv;
+
+	iosv = IOS_GetPreferredVersion();
+	if (iosv > 0)
+		IOS_ReloadIOS(iosv);
 
 	/* Initialize the DVDX stub. */
         DI_Init();
