@@ -5,8 +5,10 @@
 #include <unistd.h>
 #include <dirent.h> 
 #include <gccore.h>
+#include <ogc/lwp_threads.h>
 #include <wiiuse/wpad.h>
 #include <di/di.h>
+void __exception_closeall();
 
 #include "filestuff.h"
 #include "bootstuff.h"
@@ -49,7 +51,8 @@ void __initializeVideo()
 	}
 }
 
-void reloadIOS () {
+void reloadIOS ()
+{
 	int ver;
 
 	__IOS_ShutdownSubsystems();
@@ -75,6 +78,7 @@ void cleanup ()
 	reloadIOS();
 	/* Then g'bye libOGC. */
 	SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+	__exception_closeall();
 }
 
 void sourceSelector ()
@@ -242,11 +246,14 @@ int main(int argc, char **argv)
 						case 0x1:
 							entry = (void *)relocateElf(bufPtr);
 							break;
+						default:
+							entry = NULL;
+							break;
 					}
-					
-					cleanup();
-					
-					entry();
+					if (entry) {
+						cleanup();
+						__lwp_thread_stopmultitasking(entry);
+					}
 				}
 			}
 		}
