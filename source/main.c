@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <dirent.h> 
 #include <gccore.h>
+#include <gctypes.h>
 #include <ogc/lwp_threads.h>
 #include <wiiuse/wpad.h>
 #include <di/di.h>
@@ -48,6 +49,16 @@ void __initializeVideo()
 	if(rmode->viTVMode&VI_NON_INTERLACE)
 	{
 		VIDEO_WaitVSync();
+	}
+}
+
+void setArgs (char *path, void *ventry) {
+	u32 *entry = ventry;
+	struct __argv *argstruct = (struct __argv *)(entry + 2);
+	if (entry[1] == ARGV_MAGIC) {
+		argstruct->argvMagic = ARGV_MAGIC;
+		argstruct->commandLine = path;
+		argstruct->length = strlen(path) + 1;
 	}
 }
 
@@ -251,6 +262,7 @@ int main(int argc, char **argv)
 							break;
 					}
 					if (entry) {
+						setArgs(getItem(index)->name, entry);
 						cleanup();
 						__lwp_thread_stopmultitasking(entry);
 					}
