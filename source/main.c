@@ -16,6 +16,8 @@
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
 
+#define LOADMII_DEFAULT_IOS 36
+
 static u32 reloadStub[] = {
 	0x3c208133, // lis 1,0x8133
 	0x60210000, // ori 1,1,0x0000
@@ -221,6 +223,7 @@ int main(int argc, char **argv)
 							break;
 					}
 					
+					IOS_ReloadIOS(LOADMII_DEFAULT_IOS);
 					cleanup();
 					
 					entry();
