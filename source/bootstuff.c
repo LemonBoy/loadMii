@@ -32,10 +32,13 @@ u32 relocateDol (u8 *buffer)
         for (loop = 0; loop < maxTextSections; loop++)
         {
                 memcpy((void *)hdr->textmem[loop], buffer + hdr->textoff[loop], hdr->textsize[loop]);
+		DCFlushRange((void *)hdr->textmem[loop], hdr->textsize[loop]);
+		ICInvalidateRange((void *)hdr->textmem[loop], hdr->textsize[loop]);
         }
         for (loop = 0; loop < maxDataSections; loop++)
         {
                 memcpy((void *)hdr->datamem[loop], buffer + hdr->dataoff[loop], hdr->datasize[loop]);
+		DCFlushRange((void *)hdr->datamem[loop], hdr->datasize[loop]);
         }
         return hdr->entry;
 }        
