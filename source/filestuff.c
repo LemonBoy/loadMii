@@ -236,7 +236,7 @@ int updatePath (char *update)
 u8 *memoryLoad (item *file)
 {
         char ffPath[MAXPATHLEN];
-        u8 *memholder = (u8 *)0x92000000;
+        u8 *memholder;
         
         memset(&ffPath, 0, sizeof(ffPath));
         
@@ -248,6 +248,9 @@ u8 *memoryLoad (item *file)
         {
                 return NULL;
         }
+
+        memholder = malloc(file->size);
+        if (!memholder) return NULL;
 
         if (fread(memholder, 1, file->size, fp) < file->size)
         {
