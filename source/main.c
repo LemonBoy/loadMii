@@ -180,13 +180,15 @@ int main(int argc, char **argv)
         while (1)
         {
                 u8 kMap = readKeys();
+		char *currentPath = getCurrentPath();
 
 		printf("\x1b[2J");
                 printf("\x1b[3;0H");
 		printf("\t :: loadMii 0.4 REBiRTH - Browser\n");
 		printf("\t :: Press [+] to change the browsing device.\n");
-                printf("\t :: [%s]\n", getCurrentPath());
+                printf("\t :: [%s]\n", currentPath);
                 printf("\n");
+		free(currentPath);
 
                 if (kMap & KEY_UP && index > 0)
                 {
