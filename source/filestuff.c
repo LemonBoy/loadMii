@@ -250,11 +250,16 @@ u8 *memoryLoad (item *file)
         }
 
         memholder = malloc(file->size);
-        if (!memholder) return NULL;
+        if (!memholder)
+	{
+	        fclose(fp);
+		return NULL;
+	}
 
         if (fread(memholder, 1, file->size, fp) < file->size)
         {
                 free(memholder);
+	        fclose(fp);
                 return NULL;
         }
         
