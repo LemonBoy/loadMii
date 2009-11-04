@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 							break;
 					}
 					if (entry) {
-						setArgs(getItem(index)->name, entry);
+						setArgs(getFullName(getItem(index)), entry);
 						cleanup();
 						__lwp_thread_stopmultitasking(entry);
 					}

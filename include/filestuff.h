@@ -31,6 +31,7 @@ char *getCurrentPath ();
 item *getItem (int n);
 int getFilesCount ();
 char *getNames ();
+char *getFullName (item *file);
 int isDeviceInserted ();
 void doStartup (int activate);
 

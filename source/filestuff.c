@@ -233,16 +233,24 @@ int updatePath (char *update)
         return 1;
 }
 
-u8 *memoryLoad (item *file)
+char *getFullName (item *file)
 {
         char ffPath[MAXPATHLEN];
-        u8 *memholder;
         
         memset(&ffPath, 0, sizeof(ffPath));
         
         sprintf(ffPath, "%s/%s", getCurrentPath(), file->name);
+
+        return strdup(ffPath);
+}
+
+u8 *memoryLoad (item *file)
+{
+        char *ffPath = getFullName(file);
+        u8 *memholder;
         
         FILE * fp = fopen(ffPath, "rb");
+	free(ffPath);
         
         if (fp == NULL)
         {
