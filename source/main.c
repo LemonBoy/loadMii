@@ -59,6 +59,8 @@ void setArgs (char *path, void *ventry) {
 		argstruct->argvMagic = ARGV_MAGIC;
 		argstruct->commandLine = path;
 		argstruct->length = strlen(path) + 1;
+		DCFlushRange(argstruct, sizeof(struct __argv));
+		DCFlushRange(path, strlen(path) + 1);
 	}
 }
 
