@@ -4,11 +4,6 @@
 
 #include "tools.h"
 
-void blinkTray ()
-{
-	*(u32 *)0x0d8000c0 = *(u32 *)0x0d8000c0 ^ 0x20;
-}
-
 /* Internal errno. */
 
 #define ERRNO_NO_ERROR 0
@@ -24,7 +19,7 @@ char *errorTable[] = {
 	
 void setError (int err)
 {
-        errNo = err;
+    errNo = err;
 }
 
 void handleError ()
@@ -36,15 +31,7 @@ void handleError ()
 		printf("\x1b[26;10H");
 		printf(":: %s\n", errorTable[errNo]);
 		
-		sleep(1);
-		blinkTray();
-		sleep(1);
-		blinkTray();
-		sleep(1);
-		blinkTray();
-		sleep(1);
-		blinkTray();
-		sleep(1);				
+		sleep(8);				
 		
 		errNo = ERRNO_NO_ERROR;
 	}

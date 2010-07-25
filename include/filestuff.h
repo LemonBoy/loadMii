@@ -34,11 +34,12 @@ int supportedFile (char *name);
 int setDevice (fatdev device);
 void unmountDevice ();
 int updatePath (char *update);   
-char *getCurrentPath ();                
+char *getCurrentPath (int wrap);             
 item *getItem (int n);
 int getFilesCount ();
 char *getNames ();
 int isDeviceInserted ();
 void doStartup (int activate);
+char *getItemFullpath (item *i);
 
 #endif

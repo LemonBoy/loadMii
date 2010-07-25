@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <gccore.h>
 
@@ -24,19 +25,37 @@ int validateHeader(u8 *buffer)
     return 0xdeadbeef;
 }
 
-u32 relocateDol (u8 *buffer)
+u32 relocateDol (u8 *buffer, struct __argv *argv)
 {
         int loop;
         dolheader *hdr = (dolheader *)buffer;
         memset((void *)hdr->bssmem, 0, hdr->bsssize);
+		printf("BSS @ %08x (%08x)\n", hdr->bssmem, hdr->bsssize);
         for (loop = 0; loop < maxTextSections; loop++)
         {
+			if (hdr->textsize[loop])
+			{	
+				printf("Text @ %08x (%08x)\n", hdr->textmem[loop], hdr->textsize[loop]);
                 memcpy((void *)hdr->textmem[loop], buffer + hdr->textoff[loop], hdr->textsize[loop]);
+				DCFlushRange((void *)hdr->textmem[loop], hdr->textsize[loop]);
+				ICInvalidateRange((void *)hdr->textmem[loop], hdr->textsize[loop]);
+			}
         }
         for (loop = 0; loop < maxDataSections; loop++)
         {
+			if (hdr->datasize[loop])
+			{
+				printf("Data @ %08x (%08x)\n", hdr->datamem[loop], hdr->datasize[loop]);
                 memcpy((void *)hdr->datamem[loop], buffer + hdr->dataoff[loop], hdr->datasize[loop]);
+				DCFlushRange((void *)hdr->datamem[loop], hdr->datasize[loop]);
+			}
         }
+		if (argv && argv->argvMagic == ARGV_MAGIC)
+		{
+			memmove((void *)(hdr->entry + 8), argv, sizeof(*argv));
+			DCFlushRange((void *)(hdr->entry + 8), sizeof(*argv));
+		}
+		printf("entry %08x\n", hdr->entry);
         return hdr->entry;
 }        
 
@@ -53,6 +72,7 @@ u32 relocateElf (u8 *addr)
         if (ehdr->e_machine != MACHINE_PPC)
         {
                 setError(3);
+				return 0;
         }
         /* Find the section header string table for output info */
         shdr = (Elf32_Shdr *) (addr + ehdr->e_shoff +

@@ -15,6 +15,7 @@
 void setError (int err);
 void handleError ();
 u8 readKeys ();
+void blinkTray ();
 
 #define matchStr(x,y) ((strcmp(x,y) == 0) ? 1 : 0)
 

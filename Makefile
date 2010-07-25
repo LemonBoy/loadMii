@@ -25,7 +25,7 @@ INCLUDES	:=      include
 # options for code generation
 #---------------------------------------------------------------------------------
 
-CFLAGS	= -O3 -Wall $(MACHDEP) $(INCLUDE)
+CFLAGS	= -g -O2 -Werror $(MACHDEP) $(INCLUDE)
 CXXFLAGS =	$(CFLAGS)
 
 LDFLAGS	= $(MACHDEP) -Wl,-Map,$(notdir $@).map,--section-start,.init=0x81330000

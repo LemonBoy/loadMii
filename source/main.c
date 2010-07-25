@@ -10,28 +10,27 @@
 
 #include "filestuff.h"
 #include "bootstuff.h"
-#include "netstuff.h"
 #include "tools.h"
 
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
 
-#define LOADMII_DEFAULT_IOS 36
-
-static u32 reloadStub[] = {
-	0x3c208133, // lis 1,0x8133
-	0x60210000, // ori 1,1,0x0000
-	0x7c2903a6, // mtctr 1
-	0x4e800420  // bctr
-};
-
-void installStub ()
+void reloadIOS ()
 {
-	u8 stubSign[] = {'S', 'T', 'U', 'B', 'H', 'A', 'X', 'X'};
-	
-	memset((void *)0x80001800, 0, 0x1800);
-	//~ memcpy((void *)0x80001804, stubSign, sizeof(stubSign));
-	memcpy((void *)0x80001800, reloadStub, sizeof(reloadStub));
+	int ver;
+
+	__IOS_ShutdownSubsystems();
+	if (__ES_Init() < 0) 
+		return;
+	ver = IOS_GetPreferredVersion();
+	if (ver < 0)
+	{
+		__ES_Close();
+		return;
+	}
+	if (__IOS_LaunchNewIOS(ver) < 0) 
+		__ES_Close();
+	return;
 }
 
 void __initializeVideo()
@@ -51,14 +50,54 @@ void __initializeVideo()
 	}
 }
 
+extern void __exception_closeall();
+
 void cleanup ()
 {
 	/* Unmount the FAT device... */
 	unmountDevice();
 	/* and send the shutdown command. */
 	doStartup(0);
+	/* We dont need WPAD anymore */
+	WPAD_Shutdown();
+	/* Reload an ios */
+	reloadIOS();
 	/* Then g'bye libOGC. */
 	SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+	/* Disable exceptions */
+    __exception_closeall();
+}
+
+void installStub ()
+{
+	FILE * rstub = fopen("sd:/loader.bin", "rb");
+	u32 rstubSz;
+	
+	fseek(rstub, 0, SEEK_END);
+	rstubSz = ftell(rstub);
+	fseek(rstub, 0, SEEK_SET);
+	
+	fread((void *)0x80001800, 1, rstubSz, rstub);
+	
+	fclose(rstub);
+}
+
+void buildArgs (char *path, struct __argv *args)
+{
+    bzero(args, sizeof(*args));
+    args->argvMagic = ARGV_MAGIC;
+    args->length = strlen(path) + 2;
+    args->commandLine = (char*)malloc(args->length);
+    if (!args->commandLine)
+	{
+		args->argvMagic = 0xdeadbeef;
+		return;
+	}
+    strcpy(args->commandLine, path);
+    args->commandLine[args->length - 1] = '\0';
+    args->argc = 1;
+    args->argv = &args->commandLine;
+    args->endARGV = args->argv + 1;
 }
 
 void sourceSelector ()
@@ -66,28 +105,28 @@ void sourceSelector ()
 	int sel = 0;
 	
 	while (1)
-        {
-                u8 kMap = readKeys();
+    {
+        u8 kMap = readKeys();
 
 		printf("\x1b[2J");
-                printf("\x1b[3;0H");
-                printf("\t :: loadMii 0.4 REBiRTH - Device selection\n");
-                printf("\t :: Press [LEFT] and [RIGHT] to choose between the devices\n");
-                printf("\t :: %s\n", devlst[sel].str);
-                printf("\t :: Inserted : %s\n", (devlst[sel].io->isInserted()) ? "Yes" : "No");
+        printf("\x1b[3;0H");
+        printf("\t :: loadMii 0.4 REBiRTH - Device selector\n\t :: (C) 2009-2010 The Lemon Man\n");
+        printf("\t :: Press [LEFT] and [RIGHT] to choose between the devices\n");
+        printf("\t :: %s\n", devlst[sel].str);
+        printf("\t :: Inserted : %s\n", (devlst[sel].io->isInserted()) ? "Yes" : "No");
                 
-                if (kMap & KEY_RIGHT && sel < (maxdev - 1))
-                {
+        if (kMap & KEY_RIGHT && sel < (maxdev - 1))
+        {
 			sel++;		
-                }
+        }
 
-                if (kMap & KEY_LEFT && sel > 0)
-                {
-                        sel--;
-                }                
+        if (kMap & KEY_LEFT && sel > 0)
+        {
+            sel--;
+        }                
                 
-                if (kMap & KEY_A)
-                {
+        if (kMap & KEY_A)
+        {
 			if (devlst[sel].io->isInserted())
 			{
 				setDevice(devlst[sel]);
@@ -109,7 +148,7 @@ int main(int argc, char **argv)
 	int index = 0;
 
 	/* Initialize the DVDX stub. */
-        DI_Init();
+    DI_Init();
 
 	/* Set up the video. */
 	__initializeVideo();
@@ -120,48 +159,34 @@ int main(int argc, char **argv)
 	
 	/* Send activation command to the devices. */
 	doStartup(1);
-
-#if 0
-	startNetworkStuff();
-	
-	while (networkReady())
-	{
-		printf(".");
-		fflush(stdout);
-		VIDEO_WaitVSync();
-	}
-	
-	printf("\t\t :: Network has been inited -> %i\n", networkReady());
-	
-	sleep(10);
-#endif
-
 	/* Ask the user wich device to mount. */
 	sourceSelector();
-        	
-	installStub();	
+	/* Install the reloading stub. */
 		
-        while (1)
-        {
-                u8 kMap = readKeys();
+    while (1)
+    {
+        u8 kMap = readKeys();
+		char *currentPath = getCurrentPath(1);
 
 		printf("\x1b[2J");
-                printf("\x1b[3;0H");
-		printf("\t :: loadMii 0.4 REBiRTH - Browser\n");
+        printf("\x1b[3;0H");
+		printf("\t :: loadMii 0.4 REBiRTH - Browser\n\t :: (C) 2009-2010 The Lemon Man\n");
 		printf("\t :: Press [+] to change the browsing device.\n");
-                printf("\t :: [%s]\n", getCurrentPath());
-                printf("\n");
+        printf("\t :: [%s]\n", currentPath);
+        printf("\n");
+				
+		free(currentPath);
 
-                if (kMap & KEY_UP && index > 0)
-                {
-                        index--;
-                }
+        if (kMap & KEY_UP && index > 0)
+        {
+            index--;
+        }
 
-                if (kMap & KEY_DOWN && index < (p - 1))
-                {
-                        index++;
-                }
-		
+        if (kMap & KEY_DOWN && index < (p - 1))
+        {
+            index++;
+        }
+
 		if (kMap & KEY_LEFT)
 		{
 			if (index <= 5)
@@ -191,16 +216,16 @@ int main(int argc, char **argv)
 			sourceSelector();
 		}
 		
-                if (kMap & KEY_B)
-                {
+        if (kMap & KEY_B)
+        {
 			if (updatePath(".."))
 			{
 				index = 0;
 			}
 		}
 		
-                if (kMap & KEY_A)
-                {
+        if (kMap & KEY_A)
+        {
 			if (getItem(index)->size == 0)
 			{
 				updatePath(getItem(index)->name);
@@ -211,40 +236,58 @@ int main(int argc, char **argv)
 				if (supportedFile(getItem(index)->name))
 				{
 					u8 *bufPtr = memoryLoad(getItem(index));
-					void (*entry)() = (void*)0x80001400;
-					/* Do the right relocation. */
-					switch (validateHeader(bufPtr))
-					{
-						case 0x0:
-							entry = (void *)relocateDol(bufPtr);
-							break;
-						case 0x1:
-							entry = (void *)relocateElf(bufPtr);
-							break;
+					char *argPath = getItemFullpath(getItem(index));
+					struct __argv args;
+					void (*entry)();
+					/* Check for loading fail */
+					if (bufPtr)
+					{				
+						/* Do the right relocation. */
+						switch (validateHeader(bufPtr))
+						{
+							case 0x0:
+								buildArgs(argPath, &args);
+								entry = (void (*)())(relocateDol(bufPtr, &args));
+								break;
+							case 0x1:
+								entry = (void (*)())(relocateElf(bufPtr));
+								break;
+							default:
+								entry = NULL;
+						}
+						
+						if (entry)
+						{
+							free(bufPtr);
+							/* Set CPU/BUS clock as Nintendo SDK apps require so. */
+							*(vu32*)0x800000F8 = 0x0E7BE2C0;
+							*(vu32*)0x800000FC = 0x2B73A840;
+							cleanup();
+							__lwp_thread_stopmultitasking(entry);
+							entry();
+						}
+					} else {
+						setError(3);
 					}
-					
-					IOS_ReloadIOS(LOADMII_DEFAULT_IOS);
-					cleanup();
-					
-					entry();
 				}
 			}
 		}
 
-                for (p=index;p<18+index;p++)
-	        {
-		        if (getFilesCount() - p == 0)
-		        {
-			        break;
+        for (p=index;p<18+index;p++)
+	    {
+		    if (getFilesCount() - p == 0)
+		    {
+				break;
 			}
 			printf("\t %s %s\n", ((p == index) ? "::" : "  "), getItem(p)->labl);
 		}
+
 		/* Error handler. */
 		handleError();
 		/* Avoid flickering. */
 		fflush(stdout);
 		VIDEO_WaitVSync();
-        }		
+    }		
 
 	return 0;
 }

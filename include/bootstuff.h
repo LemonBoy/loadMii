@@ -59,7 +59,7 @@ typedef struct {
 } Elf32_Shdr;
 
 int validateHeader(u8 *buffer);
-u32 relocateDol(u8 *buffer);
+u32 relocateDol (u8 *buffer, struct __argv *argv);
 u32 relocateElf (u8 *addr);
 
 #endif

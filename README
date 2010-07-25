@@ -7,7 +7,9 @@ loadMii 0.4 REBiRTH
 - Supports loading from sd card, usb stick, dvd and sdgecko
 
 Code : 
-        The Lemon Man
+        The Lemon Man - Main coder
+		MrAlert       - Various patches and bugfixes
+		Twiizers      - Reload stub based on their zelda loader
 Shouts to : 
         mvit and djdynamite123 for being the biggest loadmii fans
         ROSSO and Robocop XIII for the happy nites on irc

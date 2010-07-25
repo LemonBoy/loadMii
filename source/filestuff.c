@@ -26,18 +26,26 @@ int getFilesCount ()
         return fCount;
 }
 
+char *getItemFullpath (item *i)
+{
+	char fPath[MAXPATHLEN];
+	memset(fPath, 0, sizeof(fPath));
+	sprintf(fPath, "%s/%s", bPath, i->name);
+	return strdup(fPath);
+}
+
 int isDeviceInserted ()
 {
         return inuse->io->isInserted();
 }
 
-char *getCurrentPath ()
+char *getCurrentPath (int wrap)
 {
         char ret[MAXPATHLEN];
         
         memset(ret, 0, MAXPATHLEN);
         
-        if (strlen(bPath) >= 40)
+        if (strlen(bPath) >= 40 && wrap)
         {
                 strncpy(ret, bPath, 18);
                 strcat(ret, "...");
@@ -53,8 +61,8 @@ char *getCurrentPath ()
 
 int supportedFile (char *name)
 {
-        if (strstr(name, ".elf") ||
-            strstr(name, ".dol"))
+        if (strcasestr(name, ".elf") ||
+            strcasestr(name, ".dol"))
         {
                 return 1;
         }
@@ -226,11 +234,13 @@ int updatePath (char *update)
 u8 *memoryLoad (item *file)
 {
         char ffPath[MAXPATHLEN];
-        u8 *memholder = (u8 *)0x92000000;
+        u8 *memholder = NULL;
         
         memset(&ffPath, 0, sizeof(ffPath));
         
-        sprintf(ffPath, "%s/%s", getCurrentPath(), file->name);
+        sprintf(ffPath, "%s/%s", getCurrentPath(0), file->name);
+		
+		printf("\t %s <-\n", ffPath);
         
         FILE * fp = fopen(ffPath, "rb");
         
@@ -238,10 +248,21 @@ u8 *memoryLoad (item *file)
         {
                 return NULL;
         }
+		
+		printf("size : %i\n", file->size);
+		
+		memholder = malloc(file->size);
+		
+		if (memholder == NULL)
+		{
+			fclose(fp);
+			return NULL;
+		}
 
         if (fread(memholder, 1, file->size, fp) < file->size)
         {
                 free(memholder);
+				fclose(fp);
                 return NULL;
         }
         
